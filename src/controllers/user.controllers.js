@@ -107,7 +107,7 @@ const changePassword = catchError(async(req, res) => {
     const hashed = await bcrypt.hash(password, 10)
     const user = await User.update({password: hashed},
         {where: {id: verify.userId}})
-   
+    await verify.destroy()
     return res.status(201).json({message : "Password changed succesfully!"} )
 
 })
