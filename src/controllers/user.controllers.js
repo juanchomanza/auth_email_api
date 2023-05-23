@@ -75,11 +75,41 @@ const login = catchError(async(req,res) => {
     return res.status(200).json({token})
 })
 
-const changePassword = catchError(async(req, res) =>{
-    const {email} = req.params
+const me = catchError(async(req, res) => {
+    const user = req.user
+    return res.json(user)
+})
+
+const sendEmailForChangePassword = catchError(async(req, res) =>{
+    const {email, frontBaseUrl} = req.body
     const user = await User.findOne({where: {email}})
-    if(!user) return res.status(401).json({message: "Look your email feed"})
-    
+    if(!user) return res.status(401).json({message: "Check your email feed"})
+    const code = require('crypto').randomBytes(32).toString("hex")
+    const url = `${frontBaseUrl}/reset_password/${code}`
+    await sendEmail({
+		to: email, // Email del receptor
+		subject: `Change your password`, // asunto
+		html: `<h2>Password recovery BoldZone</h2>
+        <h3> Follow the steps </h3>
+        <p> Click on the link for change your password </p>
+        <a href="${url}"> ${url} </a>
+        <br>` // texto
+})
+    await EmailCode.create({ code, userId: user.id})
+    return res.status(200).json({message: "Check your email"})
+})
+
+const changePassword = catchError(async(req, res) => {
+    const {code} = req.params
+    const {password} = req.body
+    const verify = await EmailCode.findOne({where: {code}})
+    if(!verify) return res.status(401).json({message: 'Invalid code or expired'})
+    const hashed = await bcrypt.hash(password, 10)
+    const user = await User.update({password: hashed},
+        {where: {id: verify.userId}})
+   
+    return res.status(201).json({message : "Password changed succesfully!"} )
+
 })
 
 module.exports = {
@@ -89,5 +119,8 @@ module.exports = {
     remove,
     update,
     verifyCode,
-    login
+    login,
+    sendEmailForChangePassword,
+    changePassword,
+    me
 }
